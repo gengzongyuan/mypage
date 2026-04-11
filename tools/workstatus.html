@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>桌面状态牌</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  height:100vh;
+  font-family:system-ui,-apple-system,Segoe UI,Roboto;
+  font-size:32px;
+  font-weight:600;
+  transition: all 0.3s ease;
+}
+.box{
+  text-align:center;
+  padding:20px;
+  user-select: none;
+}
+
+/* 右上角悬浮设置按钮 */
+.setting-btn {
+  position: fixed;
+  top: 15px;
+  right: 15px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(128, 128, 128, 0.2);
+  color: #666;
+  font-size: 18px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  z-index: 999;
+}
+.setting-btn:hover {
+  opacity: 1;
+  background: rgba(128, 128, 128, 0.4);
+}
+
+/* 设置面板样式 */
+.setting-panel {
+  position: fixed;
+  top: 70px;
+  right: 15px;
+  width: 320px;
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+  display: none;
+  z-index: 998;
+  font-size: 14px;
+  color: #333;
+}
+.setting-panel.show {
+  display: block;
+}
+.setting-item {
+  margin-bottom: 15px;
+}
+.setting-item label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: 500;
+}
+.setting-item input {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  outline: none;
+}
+.color-inputs {
+  display: flex;
+  gap: 10px;
+}
+.color-inputs input {
+  flex: 1;
+  height: 36px;
+  padding: 0;
+}
+</style>
+</head>
+
+<body>
+  <!-- 状态文字 -->
+  <div class="box" id="statusText">专注中 · 请勿打扰</div>
+
+  <!-- 右上角悬浮设置按钮 -->
+  <button class="setting-btn" onclick="toggleSetting(event)">⚙️</button>
+
+  <!-- 设置面板：核心修复！添加阻止冒泡点击事件 -->
+  <div class="setting-panel" id="settingPanel" onclick="stopBubble(event)">
+    <div class="setting-item">
+      <label>专注模式文案</label>
+      <input type="text" id="inputFocusText" oninput="updateConfig()">
+    </div>
+    <div class="setting-item">
+      <label>专注模式 - 背景色 / 文字色</label>
+      <div class="color-inputs">
+        <input type="color" id="inputFocusBg" oninput="updateConfig()">
+        <input type="color" id="inputFocusColor" oninput="updateConfig()">
+      </div>
+    </div>
+    <hr style="margin:15px 0;border:none;border-top:1px solid #eee;">
+    <div class="setting-item">
+      <label>空闲模式文案</label>
+      <input type="text" id="inputFreeText" oninput="updateConfig()">
+    </div>
+    <div class="setting-item">
+      <label>空闲模式 - 背景色 / 文字色</label>
+      <div class="color-inputs">
+        <input type="color" id="inputFreeBg" oninput="updateConfig()">
+        <input type="color" id="inputFreeColor" oninput="updateConfig()">
+      </div>
+    </div>
+  </div>
+
+<script>
+// 默认配置
+let config = {
+  focus: {
+    text: "专注中 · 请勿打扰",
+    bg: "#2563eb",
+    color: "#ffffff"
+  },
+  free: {
+    text: "空闲中 · 欢迎交流",
+    bg: "#86efac",
+    color: "#065f46"
+  }
+};
+
+let isFocus = true;
+const textEl = document.getElementById('statusText');
+const body = document.body;
+
+init();
+
+// 切换状态（仅点击页面空白处生效）
+function toggleStatus() {
+  isFocus = !isFocus;
+  render();
+}
+
+// 阻止事件冒泡（核心修复函数）
+function stopBubble(e) {
+  e.stopPropagation();
+}
+
+// 切换设置面板
+function toggleSetting(e) {
+  stopBubble(e);
+  document.getElementById('settingPanel').classList.toggle('show');
+}
+
+// 实时更新配置
+function updateConfig() {
+  config.focus.text = document.getElementById('inputFocusText').value;
+  config.focus.bg = document.getElementById('inputFocusBg').value;
+  config.focus.color = document.getElementById('inputFocusColor').value;
+
+  config.free.text = document.getElementById('inputFreeText').value;
+  config.free.bg = document.getElementById('inputFreeBg').value;
+  config.free.color = document.getElementById('inputFreeColor').value;
+
+  saveConfig();
+  render();
+}
+
+// 渲染页面
+function render() {
+  const current = isFocus ? config.focus : config.free;
+  body.style.background = current.bg;
+  body.style.color = current.color;
+  textEl.textContent = current.text;
+}
+
+// 保存配置
+function saveConfig() {
+  localStorage.setItem('statusCardConfig', JSON.stringify(config));
+}
+
+// 初始化
+function init() {
+  const save = localStorage.getItem('statusCardConfig');
+  if (save) config = JSON.parse(save);
+
+  document.getElementById('inputFocusText').value = config.focus.text;
+  document.getElementById('inputFocusBg').value = config.focus.bg;
+  document.getElementById('inputFocusColor').value = config.focus.color;
+
+  document.getElementById('inputFreeText').value = config.free.text;
+  document.getElementById('inputFreeBg').value = config.free.bg;
+  document.getElementById('inputFreeColor').value = config.free.color;
+
+  // 绑定页面点击事件
+  body.onclick = toggleStatus;
+  render();
+}
+</script>
+</body>
+</html>

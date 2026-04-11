@@ -1,208 +1,168 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>桌面状态牌</title>
-<style>
-*{margin:0;padding:0;box-sizing:border-box}
-body{
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  height:100vh;
-  font-family:system-ui,-apple-system,Segoe UI,Roboto;
-  font-size:32px;
-  font-weight:600;
-  transition: all 0.3s ease;
-}
-.box{
-  text-align:center;
-  padding:20px;
-  user-select: none;
-}
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>大树的个人主页</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-/* ====================== 右上角悬浮设置按钮 ====================== */
-.setting-btn {
-  position: fixed;
-  top: 15px;
-  right: 15px;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  border: none;
-  background: rgba(128, 128, 128, 0.2);
-  color: #666;
-  font-size: 18px;
-  cursor: pointer;
-  /* 默认隐藏，悬浮显示 */
-  opacity: 0;
-  transition: opacity 0.3s ease;
-  z-index: 999;
-}
-.setting-btn:hover {
-  opacity: 1; /* 鼠标悬浮显示按钮 */
-  background: rgba(128, 128, 128, 0.4);
-}
+        body {
+            font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+            background: #f7f8fa;
+            color: #333;
+            line-height: 1.6;
+        }
 
-/* ====================== 设置面板样式 ====================== */
-.setting-panel {
-  position: fixed;
-  top: 70px;
-  right: 15px;
-  width: 320px;
-  background: white;
-  border-radius: 12px;
-  padding: 20px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-  display: none; /* 默认隐藏 */
-  z-index: 998;
-  font-size: 14px;
-  color: #333;
-}
-.setting-panel.show {
-  display: block;
-}
-.setting-item {
-  margin-bottom: 15px;
-}
-.setting-item label {
-  display: block;
-  margin-bottom: 5px;
-  font-weight: 500;
-}
-.setting-item input {
-  width: 100%;
-  padding: 8px;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  outline: none;
-}
-.color-inputs {
-  display: flex;
-  gap: 10px;
-}
-.color-inputs input {
-  flex: 1;
-  height: 36px;
-  padding: 0;
-}
-</style>
+        /* 页面容器 */
+        .container {
+            max-width: 800px;
+            margin: 60px auto;
+            padding: 0 20px;
+        }
+
+        /* 头部标题 */
+        .header {
+            text-align: center;
+            margin-bottom: 50px;
+        }
+
+        .header h1 {
+            font-size: 36px;
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 18px;
+            color: #718096;
+        }
+
+        /* 分区卡片布局 */
+        .card-group {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 20px;
+        }
+
+        /* 卡片样式 */
+        .card {
+            background: #fff;
+            padding: 30px;
+            border-radius: 16px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            transition: transform 0.2s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-3px);
+        }
+
+        .card h2 {
+            font-size: 22px;
+            color: #2d3748;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .card p {
+            color: #64748b;
+            margin-bottom: 20px;
+        }
+
+        /* 按钮样式 */
+        .btn {
+            display: inline-block;
+            padding: 10px 24px;
+            background: #4263eb;
+            color: #fff;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+
+        .btn:hover {
+            background: #3151ce;
+        }
+
+        /* 小工具区域特殊样式 */
+        .tool-items {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-top: 10px;
+        }
+
+        .tool-btn {
+            padding: 8px 16px;
+            background: #e8f3ff;
+            color: #4263eb;
+            border-radius: 6px;
+            text-decoration: none;
+        }
+
+        .tool-btn:hover {
+            background: #d0e3ff;
+        }
+
+        /* 底部 */
+        .footer {
+            text-align: center;
+            margin-top: 60px;
+            color: #94a3b8;
+            font-size: 14px;
+        }
+    </style>
 </head>
 
-<body class="mode-focus" onclick="toggleStatus()">
-  <!-- 状态文字 -->
-  <div class="box" id="statusText">专注中 · 请勿打扰</div>
+<body>
+    <div class="container">
+        <!-- 头部 -->
+        <div class="header">
+            <h1>🌳 大树的个人主页</h1>
+            <p>记录生活 · 展示作品 · 实用小工具</p>
+        </div>
 
-  <!-- 右上角悬浮设置按钮 -->
-  <button class="setting-btn" onclick="toggleSetting(event)">⚙️</button>
+        <!-- 功能分区 -->
+        <div class="card-group">
+            <!-- 1. 自我介绍 -->
+            <div class="card">
+                <h2>👋 关于我</h2>
+                <p>简单的自我介绍，个人介绍、爱好与经历</p>
+                <a href="about/" class="btn">进入查看</a>
+            </div>
 
-  <!-- 设置面板 -->
-  <div class="setting-panel" id="settingPanel">
-    <div class="setting-item">
-      <label>专注模式文案</label>
-      <input type="text" id="inputFocusText" oninput="updateConfig()">
+            <!-- 2. 我的简历 -->
+            <div class="card">
+                <h2>📄 简历</h2>
+                <p>个人简历、工作经历、技能展示</p>
+                <a href="resume/" class="btn">查看简历</a>
+            </div>
+
+            <!-- 3. 实用小工具 -->
+            <div class="card">
+                <h2>🛠️ 小工具</h2>
+                <p>自己开发的实用小工具，持续更新</p>
+                <div class="tool-items">
+                    <a href="tools/workstatus.html" class="tool-btn">🖥️ 工作状态牌</a>
+                    <!-- 以后新增工具直接在这里加链接 -->
+                    <!-- <a href="tools/demo.html" class="tool-btn">🧩 新工具</a> -->
+                </div>
+            </div>
+        </div>
+
+        <!-- 底部 -->
+        <div class="footer">
+            © 2025 大树 | 个人主页
+        </div>
     </div>
-    <div class="setting-item">
-      <label>专注模式 - 背景色 / 文字色</label>
-      <div class="color-inputs">
-        <input type="color" id="inputFocusBg" oninput="updateConfig()">
-        <input type="color" id="inputFocusColor" oninput="updateConfig()">
-      </div>
-    </div>
-    <hr style="margin:15px 0;border:none;border-top:1px solid #eee;">
-    <div class="setting-item">
-      <label>空闲模式文案</label>
-      <input type="text" id="inputFreeText" oninput="updateConfig()">
-    </div>
-    <div class="setting-item">
-      <label>空闲模式 - 背景色 / 文字色</label>
-      <div class="color-inputs">
-        <input type="color" id="inputFreeBg" oninput="updateConfig()">
-        <input type="color" id="inputFreeColor" oninput="updateConfig()">
-      </div>
-    </div>
-  </div>
-
-<script>
-// ====================== 默认配置 ======================
-let config = {
-  focus: {
-    text: "专注中 · 请勿打扰",
-    bg: "#2563eb",    // 专注背景（蓝色）
-    color: "#ffffff"  // 专注文字
-  },
-  free: {
-    text: "空闲中 · 欢迎交流",
-    bg: "#86efac",    // 空闲背景（绿色）
-    color: "#065f46"  // 空闲文字
-  }
-};
-
-let isFocus = true;
-const textEl = document.getElementById('statusText');
-const body = document.body;
-
-// 初始化：读取本地存储
-init();
-
-// ====================== 核心功能 ======================
-// 切换状态（点击屏幕）
-function toggleStatus() {
-  isFocus = !isFocus;
-  render();
-}
-
-// 切换设置面板显示/隐藏
-function toggleSetting(e) {
-  e.stopPropagation(); // 阻止触发屏幕切换
-  document.getElementById('settingPanel').classList.toggle('show');
-}
-
-// 实时更新配置
-function updateConfig() {
-  config.focus.text = document.getElementById('inputFocusText').value;
-  config.focus.bg = document.getElementById('inputFocusBg').value;
-  config.focus.color = document.getElementById('inputFocusColor').value;
-
-  config.free.text = document.getElementById('inputFreeText').value;
-  config.free.bg = document.getElementById('inputFreeBg').value;
-  config.free.color = document.getElementById('inputFreeColor').value;
-
-  saveConfig();
-  render();
-}
-
-// 渲染样式和文字
-function render() {
-  const current = isFocus ? config.focus : config.free;
-  body.style.background = current.bg;
-  body.style.color = current.color;
-  textEl.textContent = current.text;
-}
-
-// 保存配置到本地
-function saveConfig() {
-  localStorage.setItem('statusCardConfig', JSON.stringify(config));
-}
-
-// 初始化
-function init() {
-  // 读取本地保存的配置
-  const save = localStorage.getItem('statusCardConfig');
-  if (save) config = JSON.parse(save);
-
-  // 填充设置面板
-  document.getElementById('inputFocusText').value = config.focus.text;
-  document.getElementById('inputFocusBg').value = config.focus.bg;
-  document.getElementById('inputFocusColor').value = config.focus.color;
-
-  document.getElementById('inputFreeText').value = config.free.text;
-  document.getElementById('inputFreeBg').value = config.free.bg;
-  document.getElementById('inputFreeColor').value = config.free.color;
-
-  render();
-}
-</script>
 </body>
 </html>
