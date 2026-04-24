@@ -110,27 +110,27 @@
         <div id="boardNote">告示留言加载中</div>
         <div id="boardTimer" class="mono tracking-tighter">45:00</div>
         <div id="boardTaskName">正在执行的任务</div>
-<!-- 按钮容器：确保占据 100% 宽度，并设置左右间距 -->
-<div style="display: flex; width: 100%; justify-content: space-between; align-items: stretch; gap: 12px; padding: 0 20px; box-sizing: border-box; margin-top: 40px;">
+        <!-- 按钮容器：补全了 onclick 功能 -->
+        <div class="flex w-full justify-between items-stretch gap-3 px-5 mt-10 box-border max-w-lg">
 
-    <!-- 左侧：暂告段落（保持原有竖排样式） -->
-    <div style="flex: 1; display: flex; align-items: center; justify-content: center; border: 2px solid white; border-radius: 12px; padding: 15px 5px; min-height: 120px;">
-        <span style="writing-mode: vertical-rl; letter-spacing: 4px; font-weight: bold; color: white;">暂告段落</span>
-    </div>
+            <!-- 左侧：暂告段落 (点击执行 stopTimer(false)) -->
+            <button onclick="stopTimer(false)" class="flex-1 flex items-center justify-center border-2 border-white rounded-2xl py-4 min-h-[140px] active:scale-95 transition-transform bg-transparent">
+                <span style="writing-mode: vertical-rl; letter-spacing: 4px;" class="font-black text-white">暂告段落</span>
+            </button>
 
-    <!-- 中间：再加 10m（保持原有虚线框） -->
-    <div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; border: 2px dashed rgba(255,255,255,0.6); border-radius: 12px; color: white; min-height: 120px;">
-        <span style="font-size: 18px; font-weight: bold;">再加</span>
-        <span style="font-size: 18px; font-weight: bold;">10m</span>
-    </div>
+            <!-- 中间：再加 10m (点击执行 extendTimer()) -->
+            <button onclick="extendTimer()" class="flex-1 flex flex-col items-center justify-center border-2 border-dashed border-white/60 rounded-2xl py-4 min-h-[140px] active:scale-95 transition-transform bg-transparent">
+                <span class="text-lg font-black text-white">再加</span>
+                <span class="text-lg font-black text-white">10m</span>
+            </button>
 
-    <!-- 右侧：目标达成（保持原有白底竖排） -->
-    <div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; background: white; border-radius: 12px; padding: 15px 5px; min-height: 120px;">
-        <span style="writing-mode: vertical-rl; letter-spacing: 4px; font-weight: bold; color: #000; margin-bottom: 5px;">目标达成</span>
-        <span style="color: green; font-size: 20px;">✅</span>
-    </div>
+            <!-- 右侧：目标达成 (点击执行 stopTimer(true)) -->
+            <button onclick="stopTimer(true)" class="flex-1 flex flex-col items-center justify-center bg-white rounded-2xl py-4 min-h-[140px] active:scale-95 transition-transform">
+                <span style="writing-mode: vertical-rl; letter-spacing: 4px;" class="font-black text-black mb-1">目标达成</span>
+                <span class="text-xl">✅</span>
+            </button>
 
-</div>
+        </div>
     </div>
 
     <!-- 面板与逻辑 (设置、日志、任务处理) -->
