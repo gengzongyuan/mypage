@@ -44,11 +44,41 @@
 
         .play-btn-ready { background: #18181b; color: white; transition: all 0.3s; }
         .play-btn-ready:hover { transform: translateY(-2px); background: #000; }
-        
+
         /* 隐藏数字输入框箭头 */
-        input[type="number"]::-webkit-inner-spin-button, 
+        input[type="number"]::-webkit-inner-spin-button,
         input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
         input[type="number"] { -moz-appearance: textfield; }
+
+
+        /* 外壳：固定高度，超出隐藏 */
+.swipe-container {
+    position: relative;
+    overflow: hidden;
+    border-radius: 24px;
+}
+
+/* 底层：放图标和背景色，平时被盖住 */
+.swipe-underlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 25px;
+    z-index: 1; /* 在内容下面 */
+}
+
+/* 表层：放任务文字和按钮 */
+.swipe-content {
+    position: relative;
+    z-index: 10; /* 确保盖在图标上面 */
+    background: white;
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* 滑动时关掉过渡，否则手指会有延迟感 */
+.no-transition { transition: none !important; }
     </style>
 </head>
 <body class="bg-slate-50 min-h-screen pb-20">
@@ -82,20 +112,20 @@
                 <div class="flex gap-3 mb-4 items-center">
                     <div class="flex-1">
                         <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1 ml-1">任务名称</label>
-                        <input type="text" id="taskInput" placeholder="想做什么？" 
+                        <input type="text" id="taskInput" placeholder="想做什么？"
                             class="w-full text-lg font-black p-4 bg-slate-50 rounded-2xl outline-none focus:bg-white border-2 border-transparent focus:border-slate-200 transition-all">
                     </div>
                     <div class="w-20 text-center">
                         <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">分钟</label>
-                        <input type="number" id="timeDurationInp" 
+                        <input type="number" id="timeDurationInp"
                             class="w-full p-4 bg-slate-50 rounded-2xl font-black text-center text-lg text-slate-700 outline-none focus:bg-white border-2 border-transparent focus:border-slate-200 transition-all">
                     </div>
                 </div>
-                
+
                 <!-- 第二行：优先级/能耗特定选项 -->
                 <div id="modeSpecificInput" class="mb-6"></div>
 
-                <button onclick="addTask()" id="addBtn" 
+                <button onclick="addTask()" id="addBtn"
                     class="w-full py-5 rounded-2xl font-black text-xl shadow-lg active:scale-95 transition-transform uppercase tracking-widest">
                     添加任务
                 </button>
@@ -228,37 +258,42 @@
             let filtered = tasks.filter(t => t.mode === currentMode && !t.completed);
             if (currentMode === 'focus') filtered.sort((a,b) => a.prio - b.prio);
 
-            filtered.forEach(task => {
-                const card = document.createElement('div');
-                card.className = `bg-white p-5 rounded-3xl shadow-sm flex items-center justify-between transition-all hover:shadow-md `;
-                let content = ``;
-                if (currentMode === 'focus') {
-                    card.classList.add(`prio-${task.prio}`);
-                    content = `<div><p class="font-black text-slate-800 text-lg leading-tight">${task.text}</p><p class="text-[10px] text-slate-400 font-bold uppercase mt-1">P${task.prio} • ${task.duration}m</p></div>`;
-                } else if (currentMode === 'sturdy') {
-                    content = `<div class="flex items-center gap-4"><input type="checkbox" onclick="completeQuick(${task.id})" class="w-8 h-8 rounded-full accent-emerald-600 cursor-pointer"><span class="text-xl font-black text-slate-700 leading-tight">${task.text} (${task.duration}m)</span></div>`;
-                } else if (currentMode === 'buffer') {
-                    content = `<div><p class="font-black text-slate-800 text-lg leading-tight">${task.text}</p><p class="text-[10px] text-purple-400 font-bold uppercase mt-1">${task.energy} • ${task.duration}m</p></div>`;
-                } else content = `<div><p class="font-bold text-slate-600 text-base leading-tight">${task.text} (${task.duration}m)</p></div>`;
+ filtered.forEach((task, index) => {
+    // 1. 创建最外层容器
+    const container = document.createElement('div');
+    container.className = `swipe-container task-card shadow-sm`;
+    container.style.animationDelay = `${index * 0.05}s`;
 
-                card.innerHTML = content;
-                const actions = document.createElement('div');
-                actions.className = "flex gap-2 items-center";
-                
-                const playBtn = document.createElement('button');
-                playBtn.className = "play-btn-ready w-14 h-14 flex items-center justify-center rounded-[20px] active:scale-90 transition-all";
-                playBtn.innerHTML = `<svg class="w-6 h-6 ml-1" fill="currentColor" viewBox="0 0 24 24"><path d="M7 6v12l10-6z"></path></svg>`;
-                playBtn.onclick = () => startTimer(task.id);
-                
-                const delBtn = document.createElement('button');
-                delBtn.innerHTML = `<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path></svg>`;
-                delBtn.className = "w-10 h-10 flex items-center justify-center text-slate-300 hover:text-red-400 transition-colors";
-                delBtn.onclick = () => deleteTask(task.id);
+    // 2. 注入三明治结构（底层 + 表层）
+    container.innerHTML = `
+        <!-- 底层：背景动作 (✅ 和 🗑️) -->
+        <div id="underlay-${task.id}" class="swipe-underlay">
+            <span class="text-2xl opacity-0 transition-opacity">✅</span>
+            <span class="text-2xl opacity-0 transition-opacity">🗑️</span>
+        </div>
 
-                actions.append(playBtn, delBtn);
-                card.appendChild(actions);
-                list.appendChild(card);
-            });
+        <!-- 表层：任务实际内容 -->
+        <div id="content-${task.id}" class="swipe-content p-5 flex items-center justify-between ${currentMode === 'focus' ? 'prio-'+task.prio : ''}">
+            <div class="flex-1">
+                <p class="font-black text-slate-800 text-lg leading-tight">${task.text}</p>
+                <p class="text-[10px] text-slate-400 font-bold uppercase mt-1">
+                   ${currentMode === 'focus' ? 'P' + task.prio : (task.energy || '')} • ${task.duration}m
+                </p>
+            </div>
+            <!-- 播放按钮保留，删除按钮可以去掉了，因为有了手势 -->
+            <button onclick="startTimer(${task.id})" class="play-btn-ready w-14 h-14 flex items-center justify-center rounded-[20px]">
+                <svg class="w-6 h-6 ml-1" fill="currentColor" viewBox="0 0 24 24"><path d="M7 6v12l10-6z"></path></svg>
+            </button>
+        </div>
+    `;
+
+    // 3. 这里的关键：绑定手势逻辑（核心 JS）
+    const content = container.querySelector('.swipe-content');
+    const underlay = container.querySelector('.swipe-underlay');
+    bindSwipeEvents(content, underlay, task.id);
+
+    list.appendChild(container);
+});
         }
 
         function addTask() {
@@ -383,12 +418,111 @@
             if (l === currentMode) switchMode(currentMode);
         }
 
-        function save() { 
+        function save() {
             localStorage.setItem('os_tasks_v12', JSON.stringify(tasks));
             localStorage.setItem('os_logs_v12', JSON.stringify(logs));
         }
         window.onclick = () => closePanels();
+
+ // --- 滑动切换逻辑开始 ---
+        let touchStartX = 0;
+        let touchStartY = 0;
+        let isTouchingTask = false; // 新增：标记是否触碰到任务卡片
+
+        window.addEventListener('touchstart', function(e) {
+            // 判断手指落点是否在任务卡片（swipe-content）上
+            isTouchingTask = !!e.target.closest('.swipe-content');
+
+            touchStartX = e.changedTouches[0].screenX;
+            touchStartY = e.changedTouches[0].screenY;
+        }, { passive: true });
+
+        window.addEventListener('touchend', function(e) {
+            const touchEndX = e.changedTouches[0].screenX;
+            const touchEndY = e.changedTouches[0].screenY;
+
+            // 如果落点在任务卡片上，或者全屏状态牌已激活，则不触发模式切换
+            if (isTouchingTask || document.getElementById('statusBoard').classList.contains('active')) {
+                return;
+            }
+
+            handleGesture(touchStartX, touchEndX, touchStartY, touchEndY);
+        }, { passive: true });
+
+        function handleGesture(startX, endX, startY, endY) {
+            const deltaX = endX - startX;
+            const deltaY = endY - startY;
+
+            // 设定滑动阈值，并确保水平位移明显大于垂直位移
+            if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 80) {
+                const modes = ['focus', 'sturdy', 'buffer', 'admin'];
+                let currentIndex = modes.indexOf(currentMode);
+
+                if (deltaX < 0) {
+                    // 向左滑动 -> 切换到下一个模式
+                    let nextIndex = (currentIndex + 1) % modes.length;
+                    switchMode(modes[nextIndex]);
+                } else {
+                    // 向右滑动 -> 切换到上一个模式
+                    let prevIndex = (currentIndex - 1 + modes.length) % modes.length;
+                    switchMode(modes[prevIndex]);
+                }
+            }
+        }
+        // --- 滑动切换逻辑结束 ---
         switchMode('focus');
+
+        function bindSwipeEvents(el, underlay, taskId) {
+    let startX = 0;
+    let currentX = 0;
+
+    el.addEventListener('touchstart', (e) => {
+        startX = e.touches[0].clientX;
+        el.classList.add('no-transition'); // 关掉动画，跟随手指
+    }, {passive: true});
+
+    el.addEventListener('touchmove', (e) => {
+        currentX = e.touches[0].clientX - startX;
+
+        // 限制滑动：不要滑出屏幕太远（阻尼感）
+        if (Math.abs(currentX) > 200) currentX = currentX > 0 ? 200 + (currentX-200)*0.2 : -200 + (currentX+200)*0.2;
+
+        el.style.transform = `translateX(${currentX}px)`;
+
+        // 动态改变底层颜色和图标可见度
+        const icons = underlay.querySelectorAll('span');
+        if (currentX > 50) { // 右滑：完成
+            underlay.style.backgroundColor = '#22c55e'; // 绿色
+            icons[0].style.opacity = '1'; icons[1].style.opacity = '0';
+        } else if (currentX < -50) { // 左滑：删除
+            underlay.style.backgroundColor = '#ef4444'; // 红色
+            icons[0].style.opacity = '0'; icons[1].style.opacity = '1';
+        } else {
+            underlay.style.backgroundColor = 'transparent';
+        }
+    }, {passive: true});
+
+    el.addEventListener('touchend', () => {
+        el.classList.remove('no-transition'); // 开启平滑回弹动画
+
+        if (currentX > 130) {
+            // 成功：向右完全滑出并完成
+            el.style.transform = 'translateX(100%)';
+            setTimeout(() => completeQuick(taskId), 200);
+        } else if (currentX < -130) {
+            // 成功：向左完全滑出并删除
+            el.style.transform = 'translateX(-100%)';
+            setTimeout(() => deleteTask(taskId), 200);
+        } else {
+            // 失败：弹回原位
+            el.style.transform = 'translateX(0)';
+            underlay.style.backgroundColor = 'transparent';
+        }
+        currentX = 0;
+    });
+}
+
+
     </script>
 </body>
 </html>
