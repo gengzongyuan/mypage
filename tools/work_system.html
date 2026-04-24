@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OS: 极速计划系统 V12</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@800&family=Noto+Sans+SC:wght@400;700;900&display=swap');
+        body { font-family: 'Noto Sans SC', sans-serif; transition: all 0.4s ease; overflow-x: hidden; }
+        .mono { font-family: 'JetBrains Mono', monospace; }
+
+        .prio-1 { border-left: 10px solid #ef4444; }
+        .prio-2 { border-left: 10px solid #f97316; }
+        .prio-3 { border-left: 10px solid #3b82f6; }
+        .prio-4 { border-left: 10px solid #94a3b8; }
+
+        #statusBoard {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            display: none; flex-direction: column; align-items: center; justify-content: center;
+            z-index: 1000; text-align: center; padding: 5vw;
+        }
+        #statusBoard.active { display: flex; animation: zoomIn 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
+        @keyframes zoomIn { from { opacity: 0; transform: scale(1.1); } to { opacity: 1; transform: scale(1); } }
+
+        #boardNote { font-size: 3.5rem; font-weight: 900; line-height: 1.2; margin-bottom: 2rem; }
+        #boardTimer { font-size: 15rem; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+        #boardTaskName { font-size: 2rem; opacity: 0.8; font-weight: 700; border-top: 4px solid currentColor; padding-top: 2rem; margin-top: 2rem; width: 80%; }
+
+        @media (max-width: 768px) {
+            #boardNote { font-size: 2.2rem; }
+            #boardTimer { font-size: 8rem; }
+            #boardTaskName { font-size: 1.5rem; }
+        }
+
+        .side-panel {
+            position: fixed; top: 80px; right: 20px; width: 340px;
+            max-height: 80vh; background: white; border-radius: 24px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            display: none; z-index: 800; flex-direction: column; overflow: hidden;
+        }
+        .scroll-area { overflow-y: auto; flex: 1; padding: 20px; }
+        .show { display: flex !important; }
+
+        .play-btn-ready { background: #18181b; color: white; transition: all 0.3s; }
+        .play-btn-ready:hover { transform: translateY(-2px); background: #000; }
+        
+        /* 隐藏数字输入框箭头 */
+        input[type="number"]::-webkit-inner-spin-button, 
+        input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type="number"] { -moz-appearance: textfield; }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen pb-20">
+
+    <div id="app">
+        <header id="mainHeader" class="pt-12 pb-20 px-6 rounded-b-[50px] text-white shadow-2xl transition-all duration-500">
+            <div class="max-w-md mx-auto">
+                <nav class="flex bg-black/20 backdrop-blur-md p-1 rounded-2xl mb-8 border border-white/10">
+                    <button onclick="switchMode('focus')" id="tab-focus" class="flex-1 py-2 rounded-xl text-[10px] font-black transition-all">专注</button>
+                    <button onclick="switchMode('sturdy')" id="tab-sturdy" class="flex-1 py-2 rounded-xl text-[10px] font-black transition-all">强健</button>
+                    <button onclick="switchMode('buffer')" id="tab-buffer" class="flex-1 py-2 rounded-xl text-[10px] font-black transition-all">缓冲</button>
+                    <button onclick="switchMode('admin')" id="tab-admin" class="flex-1 py-2 rounded-xl text-[10px] font-black transition-all">杂物</button>
+                </nav>
+                <div class="flex justify-between items-end">
+                    <div>
+                        <h1 id="modeTitle" class="text-5xl font-black italic tracking-tighter uppercase leading-none">Focus</h1>
+                        <p id="modeDesc" class="text-sm opacity-90 mt-4 font-bold tracking-wide">45分钟 深度管理</p>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="toggleLogs(event)" class="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur-lg flex items-center justify-center text-2xl active:scale-90 transition-all shadow-inner">📜</button>
+                        <button onclick="toggleSettings(event)" class="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur-lg flex items-center justify-center text-2xl active:scale-90 transition-all shadow-inner">⚙️</button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <main class="max-w-md mx-auto px-4 -mt-10">
+            <!-- 核心交互区 -->
+            <div class="bg-white rounded-[32px] p-6 shadow-2xl border border-white mb-8">
+                <!-- 第一行：名称 + 时间 -->
+                <div class="flex gap-3 mb-4 items-center">
+                    <div class="flex-1">
+                        <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1 ml-1">任务名称</label>
+                        <input type="text" id="taskInput" placeholder="想做什么？" 
+                            class="w-full text-lg font-black p-4 bg-slate-50 rounded-2xl outline-none focus:bg-white border-2 border-transparent focus:border-slate-200 transition-all">
+                    </div>
+                    <div class="w-20 text-center">
+                        <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">分钟</label>
+                        <input type="number" id="timeDurationInp" 
+                            class="w-full p-4 bg-slate-50 rounded-2xl font-black text-center text-lg text-slate-700 outline-none focus:bg-white border-2 border-transparent focus:border-slate-200 transition-all">
+                    </div>
+                </div>
+                
+                <!-- 第二行：优先级/能耗特定选项 -->
+                <div id="modeSpecificInput" class="mb-6"></div>
+
+                <button onclick="addTask()" id="addBtn" 
+                    class="w-full py-5 rounded-2xl font-black text-xl shadow-lg active:scale-95 transition-transform uppercase tracking-widest">
+                    添加任务
+                </button>
+            </div>
+
+            <div id="taskList" class="space-y-4"></div>
+        </main>
+    </div>
+
+    <!-- 全屏状态牌 -->
+    <div id="statusBoard">
+        <div id="boardNote">告示留言加载中</div>
+        <div id="boardTimer" class="mono tracking-tighter">45:00</div>
+        <div id="boardTaskName">正在执行的任务</div>
+        <div class="flex gap-8 mt-20">
+            <button onclick="stopTimer(false)" class="px-12 py-5 rounded-3xl border-4 border-current font-black text-2xl hover:bg-white/10 transition-all">暂告段落</button>
+            <button onclick="extendTimer()" class="px-12 py-5 rounded-3xl border-4 border-dashed border-current font-black text-2xl hover:bg-white/10 transition-all">再加 10m</button>
+            <button onclick="stopTimer(true)" class="px-12 py-5 bg-white text-black rounded-3xl font-black text-2xl shadow-2xl hover:scale-105 active:scale-95 transition-all">目标达成 ✅</button>
+        </div>
+    </div>
+
+    <!-- 面板与逻辑 (设置、日志、任务处理) -->
+    <div id="settingPanel" class="side-panel">
+        <div class="p-6 border-b flex justify-between items-center bg-slate-50">
+            <h3 class="font-black text-xl text-slate-800">系统偏好</h3>
+            <button onclick="closePanels()" class="text-slate-400 text-2xl">✕</button>
+        </div>
+        <div id="settingList" class="scroll-area space-y-6"></div>
+    </div>
+
+    <div id="logPanel" class="side-panel">
+        <div class="p-6 border-b flex justify-between items-center bg-slate-50">
+            <h3 class="font-black text-xl text-slate-800">运行日志</h3>
+            <button onclick="closePanels()" class="text-slate-400 text-2xl">✕</button>
+        </div>
+        <div class="scroll-area">
+            <div class="mb-4 flex gap-2">
+                <button onclick="copyLogs()" class="flex-1 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold">复制全部</button>
+                <button onclick="clearLogs()" class="py-2 px-4 bg-red-50 text-red-500 rounded-xl text-xs font-bold">清空</button>
+            </div>
+            <pre id="logContent" class="text-[10px] font-mono text-slate-500 leading-relaxed whitespace-pre-wrap"></pre>
+        </div>
+    </div>
+
+    <script>
+        let currentMode = 'focus';
+        let tasks = JSON.parse(localStorage.getItem('os_tasks_v12')) || [];
+        let logs = JSON.parse(localStorage.getItem('os_logs_v12')) || [];
+        let timer = null;
+        let timeLeft = 0;
+        let activeTaskId = null;
+
+        let settings = JSON.parse(localStorage.getItem('os_settings_v12')) || {
+            focus: { bg: '#1e40af', text: '#ffffff', note: '正在深度专注 · 请勿打扰', defaultTime: 45 },
+            sturdy: { bg: '#065f46', text: '#ffffff', note: '正在强健体格 · 稍后联系', defaultTime: 40 },
+            buffer: { bg: '#6b21a8', text: '#ffffff', note: '能量恢复中 · 谢绝访客', defaultTime: 15 },
+            admin: { bg: '#334155', text: '#ffffff', note: '正在清理杂项 · 欢迎插单', defaultTime: 10 }
+        };
+
+        const modeMeta = {
+            focus: { title: 'Focus', desc: '深度工作管理' },
+            sturdy: { title: 'Sturdy', desc: '体能序列管理' },
+            buffer: { title: 'Buffer', desc: '能量恢复管理' },
+            admin: { title: 'Admin', desc: '琐碎事务管理' }
+        };
+
+        function addLog(action, taskName, extra = "") {
+            const now = new Date();
+            const timeStr = `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}:${now.getSeconds().toString().padStart(2,'0')}`;
+            const logEntry = `[${timeStr}] [${currentMode.toUpperCase()}] ${action.padEnd(8)} | ${taskName} ${extra ? '(' + extra + ')' : ''}`;
+            logs.unshift(logEntry);
+            if (logs.length > 500) logs.pop();
+            localStorage.setItem('os_logs_v12', JSON.stringify(logs));
+        }
+
+        function switchMode(mode) {
+            currentMode = mode;
+            const theme = settings[mode];
+            document.getElementById('mainHeader').style.backgroundColor = theme.bg;
+            document.getElementById('addBtn').style.backgroundColor = theme.bg;
+            document.getElementById('addBtn').style.color = theme.text;
+            document.getElementById('modeTitle').innerText = modeMeta[mode].title;
+            document.getElementById('modeDesc').innerText = theme.defaultTime + "分钟 " + modeMeta[mode].desc;
+            document.getElementById('timeDurationInp').value = theme.defaultTime;
+
+            document.querySelectorAll('button[id^="tab-"]').forEach(b => {
+                b.className = "flex-1 py-2 rounded-xl text-[10px] font-black transition-all opacity-30 text-white bg-transparent";
+            });
+            document.getElementById(`tab-${mode}`).className = "flex-1 py-2 rounded-xl text-[10px] font-black shadow-inner opacity-100 bg-white/20 text-white";
+
+            renderInputs();
+            renderTasks();
+        }
+
+        function renderInputs() {
+            const container = document.getElementById('modeSpecificInput');
+            if (currentMode === 'focus') {
+                container.innerHTML = `
+                    <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1 ml-1">优先级</label>
+                    <select id="prioInp" class="w-full p-4 bg-slate-50 rounded-2xl outline-none font-black text-slate-700 border-2 border-transparent focus:border-slate-200">
+                        <option value="1">🔴 P1 重要且紧急</option><option value="2" selected>🟠 P2 重要不紧急</option><option value="3">🔵 P3 紧急不重要</option><option value="4">⚪ P4 杂项琐事</option></select>`;
+            } else if (currentMode === 'buffer') {
+                container.innerHTML = `
+                    <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1 ml-1">能耗</label>
+                    <div class="flex gap-3"><label class="flex-1"><input type="radio" name="eng" value="low" checked class="hidden peer"><div class="peer-checked:bg-purple-600 peer-checked:text-white border-2 border-slate-100 p-3 rounded-2xl text-center cursor-pointer font-black transition-all">🪫 低</div></label>
+                    <label class="flex-1"><input type="radio" name="eng" value="mid" class="hidden peer"><div class="peer-checked:bg-purple-600 peer-checked:text-white border-2 border-slate-100 p-3 rounded-2xl text-center cursor-pointer font-black transition-all">🔋 中</div></label>
+                    <label class="flex-1"><input type="radio" name="eng" value="high" class="hidden peer"><div class="peer-checked:bg-purple-600 peer-checked:text-white border-2 border-slate-100 p-3 rounded-2xl text-center cursor-pointer font-black transition-all">⚡ 深度</div></label></div>`;
+            } else container.innerHTML = '';
+        }
+
+        function renderTasks() {
+            const list = document.getElementById('taskList');
+            list.innerHTML = '';
+            let filtered = tasks.filter(t => t.mode === currentMode && !t.completed);
+            if (currentMode === 'focus') filtered.sort((a,b) => a.prio - b.prio);
+
+            filtered.forEach(task => {
+                const card = document.createElement('div');
+                card.className = `bg-white p-5 rounded-3xl shadow-sm flex items-center justify-between transition-all hover:shadow-md `;
+                let content = ``;
+                if (currentMode === 'focus') {
+                    card.classList.add(`prio-${task.prio}`);
+                    content = `<div><p class="font-black text-slate-800 text-lg leading-tight">${task.text}</p><p class="text-[10px] text-slate-400 font-bold uppercase mt-1">P${task.prio} • ${task.duration}m</p></div>`;
+                } else if (currentMode === 'sturdy') {
+                    content = `<div class="flex items-center gap-4"><input type="checkbox" onclick="completeQuick(${task.id})" class="w-8 h-8 rounded-full accent-emerald-600 cursor-pointer"><span class="text-xl font-black text-slate-700 leading-tight">${task.text} (${task.duration}m)</span></div>`;
+                } else if (currentMode === 'buffer') {
+                    content = `<div><p class="font-black text-slate-800 text-lg leading-tight">${task.text}</p><p class="text-[10px] text-purple-400 font-bold uppercase mt-1">${task.energy} • ${task.duration}m</p></div>`;
+                } else content = `<div><p class="font-bold text-slate-600 text-base leading-tight">${task.text} (${task.duration}m)</p></div>`;
+
+                card.innerHTML = content;
+                const actions = document.createElement('div');
+                actions.className = "flex gap-2 items-center";
+                
+                const playBtn = document.createElement('button');
+                playBtn.className = "play-btn-ready w-14 h-14 flex items-center justify-center rounded-[20px] active:scale-90 transition-all";
+                playBtn.innerHTML = `<svg class="w-6 h-6 ml-1" fill="currentColor" viewBox="0 0 24 24"><path d="M7 6v12l10-6z"></path></svg>`;
+                playBtn.onclick = () => startTimer(task.id);
+                
+                const delBtn = document.createElement('button');
+                delBtn.innerHTML = `<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path></svg>`;
+                delBtn.className = "w-10 h-10 flex items-center justify-center text-slate-300 hover:text-red-400 transition-colors";
+                delBtn.onclick = () => deleteTask(task.id);
+
+                actions.append(playBtn, delBtn);
+                card.appendChild(actions);
+                list.appendChild(card);
+            });
+        }
+
+        function addTask() {
+            const input = document.getElementById('taskInput');
+            const timeInput = document.getElementById('timeDurationInp');
+            if (!input.value) return;
+            const newTask = {
+                id: Date.now(), mode: currentMode, text: input.value, completed: false,
+                duration: parseInt(timeInput.value) || settings[currentMode].defaultTime,
+                prio: document.getElementById('prioInp')?.value || 4,
+                energy: document.querySelector('input[name="eng"]:checked')?.value || 'low'
+            };
+            tasks.push(newTask);
+            addLog("添加", newTask.text, `${newTask.duration}m`);
+            input.value = '';
+            save(); switchMode(currentMode);
+        }
+
+        function deleteTask(id) {
+            const task = tasks.find(t => t.id === id);
+            addLog("删除", task.text);
+            tasks = tasks.filter(t => t.id !== id);
+            save(); switchMode(currentMode);
+        }
+
+        function completeQuick(id) {
+            const task = tasks.find(t => t.id === id);
+            addLog("完成", task.text);
+            tasks = tasks.map(t => t.id === id ? {...t, completed: true} : t);
+            setTimeout(() => { save(); renderTasks(); }, 300);
+        }
+
+        function startTimer(id) {
+            activeTaskId = id;
+            const task = tasks.find(t => t.id === id);
+            timeLeft = task.duration * 60;
+            addLog("开始", task.text, `${task.duration}m`);
+            const theme = settings[currentMode];
+            const board = document.getElementById('statusBoard');
+            board.style.backgroundColor = theme.bg; board.style.color = theme.text;
+            document.getElementById('boardNote').innerText = theme.note;
+            document.getElementById('boardTaskName').innerText = "正在进行：" + task.text;
+            board.classList.add('active');
+            updateBoard();
+            if(timer) clearInterval(timer);
+            timer = setInterval(() => {
+                if (timeLeft > 0) {
+                    timeLeft--;
+                    updateBoard();
+                } else {
+                    // 时间到，不自动停止，将文字变红或闪烁提示
+                    document.getElementById('boardTimer').classList.add('text-red-500', 'animate-pulse');
+                    document.getElementById('boardNote').innerText = "⚠️ 时间已到，建议立即收尾或手动加时";
+                }
+            }, 1000);
+        }
+        function extendTimer() {
+            const extMin = 10; // 默认加时10分钟
+            timeLeft += extMin * 60;
+
+            // 恢复UI状态
+            document.getElementById('boardTimer').classList.remove('text-red-500', 'animate-pulse');
+            const theme = settings[currentMode];
+            document.getElementById('boardNote').innerText = theme.note;
+
+            const task = tasks.find(t => t.id === activeTaskId);
+            addLog("加时", task.text, `+${extMin}m`);
+            updateBoard();
+        }
+
+        function updateBoard() {
+            const m = Math.floor(timeLeft / 60); const s = timeLeft % 60;
+            document.getElementById('boardTimer').innerText = `${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+        }
+
+        function stopTimer(isDone) {
+            // 新增：清除可能存在的告警样式
+            document.getElementById('boardTimer').classList.remove('text-red-500', 'animate-pulse');
+
+            const task = tasks.find(t => t.id === activeTaskId);
+            clearInterval(timer);
+            if (isDone) {
+                addLog("标记完成", task.text);
+                tasks = tasks.map(t => t.id === activeTaskId ? {...t, completed: true} : t);
+            } else {
+                addLog("挂起", task.text, `剩${Math.floor(timeLeft/60)}m`);
+            }
+            document.getElementById('statusBoard').classList.remove('active');
+            activeTaskId = null;
+            save(); renderTasks();
+        }
+
+        function toggleLogs(e) { e.stopPropagation(); closePanels(); document.getElementById('logPanel').classList.add('show'); renderLogs(); }
+        function toggleSettings(e) { e.stopPropagation(); closePanels(); document.getElementById('settingPanel').classList.add('show'); renderSettings(); }
+        function closePanels() { document.getElementById('settingPanel').classList.remove('show'); document.getElementById('logPanel').classList.remove('show'); }
+        function renderLogs() { document.getElementById('logContent').innerText = logs.join('\n') || "空"; }
+        function copyLogs() { navigator.clipboard.writeText(logs.join('\n')).then(() => alert("已复制")); }
+        function clearLogs() { if(confirm("清空？")) { logs = []; save(); renderLogs(); } }
+
+        function renderSettings() {
+            const container = document.getElementById('settingList');
+            container.innerHTML = '';
+            for (let key in settings) {
+                const div = document.createElement('div');
+                div.className = "p-5 bg-slate-100 rounded-3xl space-y-4 border-2 border-slate-200";
+                div.innerHTML = `<h4 class="font-black text-xs text-slate-400 uppercase tracking-widest">${modeMeta[key].title}</h4>
+                    <div class="flex gap-2">
+                        <div class="flex-1"><label class="text-[9px] block font-black mb-1 opacity-50 uppercase">默认分钟</label>
+                        <input type="number" value="${settings[key].defaultTime}" oninput="updateSet('${key}','defaultTime',this.value)" class="w-full p-3 rounded-xl border-none text-sm font-black shadow-sm"></div>
+                        <div class="flex-[2]"><label class="text-[9px] block font-black mb-1 opacity-50 uppercase">背景色</label>
+                        <input type="color" value="${settings[key].bg}" oninput="updateSet('${key}','bg',this.value)" class="w-full h-10 rounded-xl cursor-pointer"></div>
+                    </div>
+                    <div><label class="text-[9px] block font-black mb-1 opacity-50 uppercase">全屏留言</label>
+                    <input type="text" value="${settings[key].note}" oninput="updateSet('${key}','note',this.value)" class="w-full p-3 rounded-xl border-none text-sm font-black shadow-sm"></div>`;
+                container.appendChild(div);
+            }
+        }
+
+        function updateSet(l, f, v) {
+            settings[l][f] = (f === 'defaultTime') ? parseInt(v) : v;
+            localStorage.setItem('os_settings_v12', JSON.stringify(settings));
+            if (l === currentMode) switchMode(currentMode);
+        }
+
+        function save() { 
+            localStorage.setItem('os_tasks_v12', JSON.stringify(tasks));
+            localStorage.setItem('os_logs_v12', JSON.stringify(logs));
+        }
+        window.onclick = () => closePanels();
+        switchMode('focus');
+    </script>
+</body>
+</html>
