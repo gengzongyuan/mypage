@@ -110,11 +110,27 @@
         <div id="boardNote">告示留言加载中</div>
         <div id="boardTimer" class="mono tracking-tighter">45:00</div>
         <div id="boardTaskName">正在执行的任务</div>
-        <div class="flex gap-8 mt-20">
-            <button onclick="stopTimer(false)" class="px-12 py-5 rounded-3xl border-4 border-current font-black text-2xl hover:bg-white/10 transition-all">暂告段落</button>
-            <button onclick="extendTimer()" class="px-12 py-5 rounded-3xl border-4 border-dashed border-current font-black text-2xl hover:bg-white/10 transition-all">再加 10m</button>
-            <button onclick="stopTimer(true)" class="px-12 py-5 bg-white text-black rounded-3xl font-black text-2xl shadow-2xl hover:scale-105 active:scale-95 transition-all">目标达成 ✅</button>
-        </div>
+<!-- 按钮容器：确保占据 100% 宽度，并设置左右间距 -->
+<div style="display: flex; width: 100%; justify-content: space-between; align-items: stretch; gap: 12px; padding: 0 20px; box-sizing: border-box; margin-top: 40px;">
+
+    <!-- 左侧：暂告段落（保持原有竖排样式） -->
+    <div style="flex: 1; display: flex; align-items: center; justify-content: center; border: 2px solid white; border-radius: 12px; padding: 15px 5px; min-height: 120px;">
+        <span style="writing-mode: vertical-rl; letter-spacing: 4px; font-weight: bold; color: white;">暂告段落</span>
+    </div>
+
+    <!-- 中间：再加 10m（保持原有虚线框） -->
+    <div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; border: 2px dashed rgba(255,255,255,0.6); border-radius: 12px; color: white; min-height: 120px;">
+        <span style="font-size: 18px; font-weight: bold;">再加</span>
+        <span style="font-size: 18px; font-weight: bold;">10m</span>
+    </div>
+
+    <!-- 右侧：目标达成（保持原有白底竖排） -->
+    <div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; background: white; border-radius: 12px; padding: 15px 5px; min-height: 120px;">
+        <span style="writing-mode: vertical-rl; letter-spacing: 4px; font-weight: bold; color: #000; margin-bottom: 5px;">目标达成</span>
+        <span style="color: green; font-size: 20px;">✅</span>
+    </div>
+
+</div>
     </div>
 
     <!-- 面板与逻辑 (设置、日志、任务处理) -->
