@@ -606,8 +606,16 @@
 
         let currentDeadlineTaskId = null;
 
+        let isOpeningDeadlinePanel = false;
+
         function openDeadlinePanel(taskId) {
             console.log('openDeadlinePanel called with taskId:', taskId);
+            isOpeningDeadlinePanel = true;
+
+            setTimeout(() => {
+                isOpeningDeadlinePanel = false;
+            }, 100);
+
             currentDeadlineTaskId = taskId;
             const task = tasks.find(t => t.id === taskId);
             console.log('Found task:', task);
@@ -708,7 +716,14 @@
             localStorage.setItem('os_tasks_v12', JSON.stringify(tasks));
             localStorage.setItem('os_logs_v12', JSON.stringify(logs));
         }
-        window.onclick = () => closePanels();
+        window.addEventListener('click', (e) => {
+            if (isOpeningDeadlinePanel) {
+                return;
+            }
+            if (!e.target.closest('.bottom-panel')) {
+                closePanels();
+            }
+        });
 
  // --- 滑动切换逻辑开始 ---
         let touchStartX = 0;
@@ -766,27 +781,21 @@
         function bindSwipeEvents(el, underlay, taskId) {
     let startX = 0;
     let currentX = 0;
-    let longPressTimer = null;
     let touchMoved = false;
+    let lastTapTime = 0;
+    const DOUBLE_TAP_DELAY = 300;
     const icons = underlay.querySelectorAll('.swipe-icon');
 
     el.addEventListener('touchstart', (e) => {
         startX = e.touches[0].clientX;
         touchMoved = false;
         el.classList.add('no-transition');
-
-        longPressTimer = setTimeout(() => {
-            if (!touchMoved) {
-                openDeadlinePanel(taskId);
-            }
-        }, 500);
     }, {passive: true});
 
     el.addEventListener('touchmove', (e) => {
         const moveX = e.touches[0].clientX - startX;
         if (Math.abs(moveX) > 10) {
             touchMoved = true;
-            clearTimeout(longPressTimer);
         }
         currentX = moveX;
 
@@ -806,16 +815,29 @@
         }
     }, {passive: true});
 
+    let isTouchEvent = false;
+
+    el.addEventListener('touchstart', () => {
+        isTouchEvent = true;
+    });
+
     el.addEventListener('touchend', (e) => {
-        clearTimeout(longPressTimer);
+        const now = Date.now();
+        console.log('touchend called, lastTapTime:', lastTapTime, 'now:', now, 'diff:', now - lastTapTime, 'touchMoved:', touchMoved);
         
-        if (!touchMoved && !document.getElementById('deadlinePanel').classList.contains('show')) {
+        if (!touchMoved) {
             el.classList.remove('no-transition');
             el.style.transform = 'translateX(0)';
             underlay.classList.remove('swipe-right', 'swipe-left');
             icons.forEach(icon => icon.classList.remove('visible'));
             currentX = 0;
-        } else if (touchMoved) {
+
+            if (now - lastTapTime < DOUBLE_TAP_DELAY && now - lastTapTime > 0) {
+                console.log('Double tap detected, opening panel for task:', taskId);
+                openDeadlinePanel(taskId);
+            }
+            lastTapTime = now;
+        } else {
             el.classList.remove('no-transition');
             if (currentX > 130) {
                 el.style.transform = 'translateX(100%)';
@@ -830,6 +852,22 @@
             icons.forEach(icon => icon.classList.remove('visible'));
             currentX = 0;
         }
+    });
+
+    el.addEventListener('click', (e) => {
+        if (isTouchEvent) {
+            isTouchEvent = false;
+            return;
+        }
+
+        const now = Date.now();
+        console.log('click called, lastTapTime:', lastTapTime, 'now:', now, 'diff:', now - lastTapTime);
+        if (now - lastTapTime < DOUBLE_TAP_DELAY && now - lastTapTime > 0) {
+            e.preventDefault();
+            console.log('Double click detected, opening panel for task:', taskId);
+            openDeadlinePanel(taskId);
+        }
+        lastTapTime = now;
     });
 }
 
