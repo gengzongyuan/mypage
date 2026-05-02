@@ -125,8 +125,8 @@
                 <!-- 第二行：优先级/能耗特定选项 -->
                 <div id="modeSpecificInput" class="mb-6"></div>
 
-                <button onclick="handleAddBtnClick()" id="addBtn"
-                    onpointerdown="handleAddBtnDown()" onpointerup="handleAddBtnUp()" onpointerleave="handleAddBtnUp()"
+                <button onclick="handleAddBtnClick(event)" id="addBtn"
+                    onpointerdown="handleAddBtnDown(event)" onpointerup="handleAddBtnUp(event)" onpointerleave="handleAddBtnUp(event)"
                     class="w-full py-5 rounded-2xl font-black text-xl shadow-lg active:scale-95 transition-transform uppercase tracking-widest relative overflow-hidden">
                     <span id="addBtnText">添加任务</span>
                 </button>
@@ -196,6 +196,7 @@
         let activeTaskId = null;
         let addBtnLongPressTimer = null;
         let isLongPress = false;
+        let touchStarted = false;
         const LONG_PRESS_DURATION = 500;
 
         let settings = JSON.parse(localStorage.getItem('os_settings_v12')) || {
@@ -300,8 +301,10 @@
 });
         }
 
-        function handleAddBtnDown() {
+        function handleAddBtnDown(e) {
+            e.preventDefault();
             isLongPress = false;
+            touchStarted = true;
             const btnText = document.getElementById('addBtnText');
             btnText.innerText = '松手取消';
             addBtnLongPressTimer = setTimeout(() => {
@@ -310,18 +313,24 @@
             }, LONG_PRESS_DURATION);
         }
 
-        function handleAddBtnUp() {
+        function handleAddBtnUp(e) {
+            e.preventDefault();
+            if (!touchStarted) return;
             clearTimeout(addBtnLongPressTimer);
+            touchStarted = false;
             const btnText = document.getElementById('addBtnText');
-            btnText.innerText = '添加任务';
-        }
-
-        function handleAddBtnClick() {
             if (isLongPress) {
+                btnText.innerText = '添加任务';
                 addTaskAndStart();
             } else {
-                addTask();
+                btnText.innerText = '添加任务';
             }
+        }
+
+        function handleAddBtnClick(e) {
+            e.preventDefault();
+            if (touchStarted) return;
+            addTask();
         }
 
         function addTaskAndStart() {
@@ -339,7 +348,6 @@
             input.value = '';
             save();
             isLongPress = false;
-            document.getElementById('addBtnText').innerText = '添加任务';
             startTimer(newTask.id);
         }
 
