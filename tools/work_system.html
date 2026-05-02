@@ -125,9 +125,10 @@
                 <!-- 第二行：优先级/能耗特定选项 -->
                 <div id="modeSpecificInput" class="mb-6"></div>
 
-                <button onclick="addTask()" id="addBtn"
-                    class="w-full py-5 rounded-2xl font-black text-xl shadow-lg active:scale-95 transition-transform uppercase tracking-widest">
-                    添加任务
+                <button onclick="handleAddBtnClick()" id="addBtn"
+                    onpointerdown="handleAddBtnDown()" onpointerup="handleAddBtnUp()" onpointerleave="handleAddBtnUp()"
+                    class="w-full py-5 rounded-2xl font-black text-xl shadow-lg active:scale-95 transition-transform uppercase tracking-widest relative overflow-hidden">
+                    <span id="addBtnText">添加任务</span>
                 </button>
             </div>
 
@@ -193,6 +194,9 @@
         let timer = null;
         let timeLeft = 0;
         let activeTaskId = null;
+        let addBtnLongPressTimer = null;
+        let isLongPress = false;
+        const LONG_PRESS_DURATION = 500;
 
         let settings = JSON.parse(localStorage.getItem('os_settings_v12')) || {
             focus: { bg: '#1e40af', text: '#ffffff', note: '正在深度专注 · 请勿打扰', defaultTime: 45 },
@@ -294,6 +298,49 @@
 
     list.appendChild(container);
 });
+        }
+
+        function handleAddBtnDown() {
+            isLongPress = false;
+            const btnText = document.getElementById('addBtnText');
+            btnText.innerText = '松手取消';
+            addBtnLongPressTimer = setTimeout(() => {
+                isLongPress = true;
+                btnText.innerText = '🚀 立即执行';
+            }, LONG_PRESS_DURATION);
+        }
+
+        function handleAddBtnUp() {
+            clearTimeout(addBtnLongPressTimer);
+            const btnText = document.getElementById('addBtnText');
+            btnText.innerText = '添加任务';
+        }
+
+        function handleAddBtnClick() {
+            if (isLongPress) {
+                addTaskAndStart();
+            } else {
+                addTask();
+            }
+        }
+
+        function addTaskAndStart() {
+            const input = document.getElementById('taskInput');
+            const timeInput = document.getElementById('timeDurationInp');
+            if (!input.value) return;
+            const newTask = {
+                id: Date.now(), mode: currentMode, text: input.value, completed: false,
+                duration: parseInt(timeInput.value) || settings[currentMode].defaultTime,
+                prio: document.getElementById('prioInp')?.value || 4,
+                energy: document.querySelector('input[name="eng"]:checked')?.value || 'low'
+            };
+            tasks.push(newTask);
+            addLog("添加", newTask.text, `${newTask.duration}m`);
+            input.value = '';
+            save();
+            isLongPress = false;
+            document.getElementById('addBtnText').innerText = '添加任务';
+            startTimer(newTask.id);
         }
 
         function addTask() {
