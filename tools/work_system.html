@@ -65,8 +65,33 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0 25px;
+    padding: 0 30px;
     z-index: 1; /* 在内容下面 */
+    border-radius: 24px;
+}
+
+/* 滑动时底层图标样式 */
+.swipe-icon {
+    width: 28px;
+    height: 28px;
+    opacity: 0;
+    transition: opacity 0.2s, transform 0.2s;
+    transform: scale(0.8);
+}
+
+.swipe-icon.visible {
+    opacity: 1;
+    transform: scale(1);
+}
+
+/* 右滑完成：绿色渐变背景 */
+.swipe-underlay.swipe-right {
+    background: linear-gradient(90deg, #10b981 0%, #34d399 100%);
+}
+
+/* 左滑删除：红色渐变背景 */
+.swipe-underlay.swipe-left {
+    background: linear-gradient(90deg, #f87171 0%, #ef4444 100%);
 }
 
 /* 表层：放任务文字和按钮 */
@@ -271,10 +296,15 @@
 
     // 2. 注入三明治结构（底层 + 表层）
     container.innerHTML = `
-        <!-- 底层：背景动作 (✅ 和 🗑️) -->
+        <!-- 底层：背景动作 (完成✓ 和 删除🗑) -->
         <div id="underlay-${task.id}" class="swipe-underlay">
-            <span class="text-2xl opacity-0 transition-opacity">✅</span>
-            <span class="text-2xl opacity-0 transition-opacity">🗑️</span>
+            <svg class="swipe-icon" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            <svg class="swipe-icon" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            </svg>
         </div>
 
         <!-- 表层：任务实际内容 -->
@@ -530,30 +560,29 @@
         function bindSwipeEvents(el, underlay, taskId) {
     let startX = 0;
     let currentX = 0;
+    const icons = underlay.querySelectorAll('.swipe-icon');
 
     el.addEventListener('touchstart', (e) => {
         startX = e.touches[0].clientX;
-        el.classList.add('no-transition'); // 关掉动画，跟随手指
+        el.classList.add('no-transition');
     }, {passive: true});
 
     el.addEventListener('touchmove', (e) => {
         currentX = e.touches[0].clientX - startX;
 
-        // 限制滑动：不要滑出屏幕太远（阻尼感）
         if (Math.abs(currentX) > 200) currentX = currentX > 0 ? 200 + (currentX-200)*0.2 : -200 + (currentX+200)*0.2;
 
         el.style.transform = `translateX(${currentX}px)`;
 
-        // 动态改变底层颜色和图标可见度
-        const icons = underlay.querySelectorAll('span');
-        if (currentX > 50) { // 右滑：完成
-            underlay.style.backgroundColor = '#22c55e'; // 绿色
-            icons[0].style.opacity = '1'; icons[1].style.opacity = '0';
-        } else if (currentX < -50) { // 左滑：删除
-            underlay.style.backgroundColor = '#ef4444'; // 红色
-            icons[0].style.opacity = '0'; icons[1].style.opacity = '1';
-        } else {
-            underlay.style.backgroundColor = 'transparent';
+        underlay.classList.remove('swipe-right', 'swipe-left');
+        icons.forEach(icon => icon.classList.remove('visible'));
+
+        if (currentX > 50) {
+            underlay.classList.add('swipe-right');
+            icons[0].classList.add('visible');
+        } else if (currentX < -50) {
+            underlay.classList.add('swipe-left');
+            icons[1].classList.add('visible');
         }
     }, {passive: true});
 
@@ -569,10 +598,10 @@
             el.style.transform = 'translateX(-100%)';
             setTimeout(() => deleteTask(taskId), 200);
         } else {
-            // 失败：弹回原位
             el.style.transform = 'translateX(0)';
-            underlay.style.backgroundColor = 'transparent';
         }
+        underlay.classList.remove('swipe-right', 'swipe-left');
+        icons.forEach(icon => icon.classList.remove('visible'));
         currentX = 0;
     });
 }
