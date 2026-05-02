@@ -41,6 +41,19 @@
         }
         .scroll-area { overflow-y: auto; flex: 1; padding: 20px; }
         .show { display: flex !important; }
+        .bottom-panel.show { display: flex !important; animation: slideUp 0.3s ease-out; }
+
+        @keyframes slideUp {
+            from { transform: translateY(100%); }
+            to { transform: translateY(0); }
+        }
+
+        .bottom-panel {
+            position: fixed; bottom: 0; left: 0; right: 0;
+            max-height: 70vh; background: white; border-radius: 24px 24px 0 0;
+            box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.15);
+            display: none; z-index: 900; flex-direction: column; overflow: hidden;
+        }
 
         .play-btn-ready { background: #18181b; color: white; transition: all 0.3s; }
         .play-btn-ready:hover { transform: translateY(-2px); background: #000; }
@@ -212,6 +225,34 @@
         </div>
     </div>
 
+    <!-- 截止时间配置面板 -->
+    <div id="deadlinePanel" class="bottom-panel" onpointerdown="event.stopPropagation()" onclick="event.stopPropagation()">
+        <div class="p-6 border-b flex justify-between items-center bg-slate-50">
+            <h3 class="font-black text-xl text-slate-800">截止时间</h3>
+            <button onclick="closeDeadlinePanel()" class="text-slate-400 text-2xl">✕</button>
+        </div>
+        <div class="scroll-area">
+            <p id="deadlineTaskName" class="text-sm font-black text-slate-700 mb-4 truncate"></p>
+
+            <div class="mb-4">
+                <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">快捷设置</label>
+                <div class="flex flex-wrap gap-2">
+                    <button onclick="setDeadlineQuick('today18')" class="px-3 py-2 bg-slate-100 rounded-xl text-xs font-bold hover:bg-slate-200 transition-colors">今天 18:00</button>
+                    <button onclick="setDeadlineQuick('tomorrow9')" class="px-3 py-2 bg-slate-100 rounded-xl text-xs font-bold hover:bg-slate-200 transition-colors">明天 09:00</button>
+                    <button onclick="setDeadlineQuick('friday18')" class="px-3 py-2 bg-slate-100 rounded-xl text-xs font-bold hover:bg-slate-200 transition-colors">本周五 18:00</button>
+                    <button onclick="clearDeadline()" class="px-3 py-2 bg-red-50 text-red-500 rounded-xl text-xs font-bold hover:bg-red-100 transition-colors">清除</button>
+                </div>
+            </div>
+
+            <div class="mb-6">
+                <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">自定义时间</label>
+                <input type="datetime-local" id="deadlineInput" class="w-full py-5 px-4 bg-slate-50 rounded-2xl outline-none font-black text-slate-700 border-2 border-transparent focus:border-slate-200 transition-all text-lg cursor-pointer">
+            </div>
+
+            <button onclick="saveDeadline()" class="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-lg active:scale-95 transition-transform">保存</button>
+        </div>
+    </div>
+
     <script>
         let currentMode = 'focus';
         let tasks = JSON.parse(localStorage.getItem('os_tasks_v12')) || [];
@@ -283,12 +324,14 @@
         }
 
         function renderTasks() {
+            console.log('renderTasks called, tasks:', tasks);
             const list = document.getElementById('taskList');
             list.innerHTML = '';
             let filtered = tasks.filter(t => t.mode === currentMode && !t.completed);
             if (currentMode === 'focus') filtered.sort((a,b) => a.prio - b.prio);
 
  filtered.forEach((task, index) => {
+    console.log('Rendering task:', task);
     // 1. 创建最外层容器
     const container = document.createElement('div');
     container.className = `swipe-container task-card shadow-sm`;
@@ -314,6 +357,7 @@
                 <p class="text-[10px] text-slate-400 font-bold uppercase mt-1">
                    ${currentMode === 'focus' ? 'P' + task.prio : (task.energy || '')} • ${task.duration}m
                 </p>
+                ${task.deadline ? '<p class="text-[10px] font-bold mt-1 deadline-display"></p>' : ''}
             </div>
             <!-- 播放按钮保留，删除按钮可以去掉了，因为有了手势 -->
             <button onclick="startTimer(${task.id})" class="play-btn-ready w-14 h-14 flex items-center justify-center rounded-[20px]">
@@ -328,7 +372,71 @@
     bindSwipeEvents(content, underlay, task.id);
 
     list.appendChild(container);
+
+    console.log('Calling updateDeadlineDisplay for task.id:', task.id);
+    updateDeadlineDisplay(task.id);
 });
+        }
+
+        function updateDeadlineDisplay(taskId) {
+            console.log('updateDeadlineDisplay called for taskId:', taskId);
+            const task = tasks.find(t => t.id === taskId);
+            console.log('Found task for update:', task);
+            if (!task || !task.deadline) {
+                console.log('No deadline found, returning');
+                return;
+            }
+
+            const deadlineEl = document.querySelector(`#content-${taskId} .deadline-display`);
+            console.log('Found deadlineEl:', deadlineEl);
+            if (!deadlineEl) return;
+
+            const now = new Date();
+            const deadline = new Date(task.deadline);
+            console.log('Current time:', now.toLocaleString(), 'Deadline:', deadline.toLocaleString());
+            const diff = deadline - now;
+            const hours = Math.floor(diff / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+
+            if (diff < 0) {
+                const overdueHours = Math.abs(hours);
+                const overdueMins = Math.abs(minutes);
+                const text = `已超时 ${overdueHours > 0 ? overdueHours + '小时' : ''}${overdueMins > 0 ? overdueMins + '分钟' : ''}`;
+                console.log('Setting text (overdue):', text);
+                deadlineEl.textContent = text;
+                deadlineEl.className = 'text-[10px] font-bold mt-1 text-red-500 animate-pulse';
+            } else if (diff < 60 * 60 * 1000) {
+                const text = `还剩 ${minutes}分钟`;
+                console.log('Setting text (less than 1 hour):', text);
+                deadlineEl.textContent = text;
+                deadlineEl.className = 'text-[10px] font-bold mt-1 text-orange-500';
+            } else {
+                const isToday = now.getDate() === deadline.getDate() && 
+                              now.getMonth() === deadline.getMonth() && 
+                              now.getFullYear() === deadline.getFullYear();
+
+                const isTomorrow = now.getDate() + 1 === deadline.getDate() && 
+                                 now.getMonth() === deadline.getMonth() && 
+                                 now.getFullYear() === deadline.getFullYear();
+
+                const month = deadline.getMonth() + 1;
+                const day = deadline.getDate();
+                const timeStr = deadline.toTimeString().slice(0, 5);
+
+                let dateText = '';
+                if (isToday) {
+                    dateText = `今天`;
+                } else if (isTomorrow) {
+                    dateText = `明天`;
+                } else {
+                    dateText = `${month}月${day}日`;
+                }
+
+                const text = `${dateText} ${timeStr}`;
+                console.log('Setting text (normal):', text);
+                deadlineEl.textContent = text;
+                deadlineEl.className = 'text-[10px] font-bold mt-1 text-slate-400';
+            }
         }
 
         function handleAddBtnDown(e) {
@@ -371,7 +479,8 @@
                 id: Date.now(), mode: currentMode, text: input.value, completed: false,
                 duration: parseInt(timeInput.value) || settings[currentMode].defaultTime,
                 prio: document.getElementById('prioInp')?.value || 4,
-                energy: document.querySelector('input[name="eng"]:checked')?.value || 'low'
+                energy: document.querySelector('input[name="eng"]:checked')?.value || 'low',
+                deadline: null
             };
             tasks.push(newTask);
             addLog("添加", newTask.text, `${newTask.duration}m`);
@@ -389,7 +498,8 @@
                 id: Date.now(), mode: currentMode, text: input.value, completed: false,
                 duration: parseInt(timeInput.value) || settings[currentMode].defaultTime,
                 prio: document.getElementById('prioInp')?.value || 4,
-                energy: document.querySelector('input[name="eng"]:checked')?.value || 'low'
+                energy: document.querySelector('input[name="eng"]:checked')?.value || 'low',
+                deadline: null
             };
             tasks.push(newTask);
             addLog("添加", newTask.text, `${newTask.duration}m`);
@@ -473,9 +583,83 @@
 
         function toggleLogs(e) { e.stopPropagation(); closePanels(); document.getElementById('logPanel').classList.add('show'); renderLogs(); }
         function toggleSettings(e) { e.stopPropagation(); closePanels(); document.getElementById('settingPanel').classList.add('show'); renderSettings(); }
-        function closePanels() { document.getElementById('settingPanel').classList.remove('show'); document.getElementById('logPanel').classList.remove('show'); }
+        function closePanels() { document.getElementById('settingPanel').classList.remove('show'); document.getElementById('logPanel').classList.remove('show'); document.getElementById('deadlinePanel').classList.remove('show'); }
         function renderLogs() { document.getElementById('logContent').innerText = logs.join('\n') || "空"; }
         function copyLogs() { navigator.clipboard.writeText(logs.join('\n')).then(() => alert("已复制")); }
+
+        let currentDeadlineTaskId = null;
+
+        function openDeadlinePanel(taskId) {
+            console.log('openDeadlinePanel called with taskId:', taskId);
+            currentDeadlineTaskId = taskId;
+            const task = tasks.find(t => t.id === taskId);
+            console.log('Found task:', task);
+            document.getElementById('deadlineTaskName').innerText = task.text;
+            const input = document.getElementById('deadlineInput');
+            if (task.deadline) {
+                // 将保存的时间（是本地时间）直接显示
+                input.value = task.deadline;
+            } else {
+                input.value = '';
+            }
+            document.getElementById('deadlinePanel').classList.add('show');
+        }
+
+        function closeDeadlinePanel() {
+            document.getElementById('deadlinePanel').classList.remove('show');
+            currentDeadlineTaskId = null;
+        }
+
+        function setDeadlineQuick(type) {
+            const now = new Date();
+            let target = new Date();
+
+            if (type === 'today18') {
+                target.setHours(18, 0, 0, 0);
+                if (target <= now) target.setDate(target.getDate() + 1);
+            } else if (type === 'tomorrow9') {
+                target.setDate(target.getDate() + 1);
+                target.setHours(9, 0, 0, 0);
+            } else if (type === 'friday18') {
+                const day = now.getDay();
+                const daysUntilFriday = (5 - day + 7) % 7 || 7;
+                target.setDate(target.getDate() + daysUntilFriday);
+                target.setHours(18, 0, 0, 0);
+            }
+
+            // 手动构建符合本地时区的 YYYY-MM-DDTHH:mm 格式字符串
+            const year = target.getFullYear();
+            const month = String(target.getMonth() + 1).padStart(2, '0');
+            const day = String(target.getDate()).padStart(2, '0');
+            const hours = String(target.getHours()).padStart(2, '0');
+            const minutes = String(target.getMinutes()).padStart(2, '0');
+            
+            const localDateTime = `${year}-${month}-${day}T${hours}:${minutes}`;
+            document.getElementById('deadlineInput').value = localDateTime;
+        }
+
+        function clearDeadline() {
+            const task = tasks.find(t => t.id === currentDeadlineTaskId);
+            task.deadline = null;
+            save();
+            closeDeadlinePanel();
+            renderTasks();
+        }
+
+        function saveDeadline() {
+            console.log('saveDeadline called');
+            const input = document.getElementById('deadlineInput');
+            const task = tasks.find(t => t.id === currentDeadlineTaskId);
+            console.log('Task before save:', task);
+            if (input.value) {
+                task.deadline = input.value;
+            }
+            console.log('Task after save:', task);
+            save();
+            console.log('Tasks saved to localStorage:', tasks);
+            closeDeadlinePanel();
+            renderTasks();
+        }
         function clearLogs() { if(confirm("清空？")) { logs = []; save(); renderLogs(); } }
 
         function renderSettings() {
@@ -557,18 +741,37 @@
         // --- 滑动切换逻辑结束 ---
         switchMode('focus');
 
+        setInterval(() => {
+            const activeTasks = tasks.filter(t => t.deadline && !t.completed);
+            activeTasks.forEach(task => updateDeadlineDisplay(task.id));
+        }, 60000);
+
         function bindSwipeEvents(el, underlay, taskId) {
     let startX = 0;
     let currentX = 0;
+    let longPressTimer = null;
+    let touchMoved = false;
     const icons = underlay.querySelectorAll('.swipe-icon');
 
     el.addEventListener('touchstart', (e) => {
         startX = e.touches[0].clientX;
+        touchMoved = false;
         el.classList.add('no-transition');
+
+        longPressTimer = setTimeout(() => {
+            if (!touchMoved) {
+                openDeadlinePanel(taskId);
+            }
+        }, 500);
     }, {passive: true});
 
     el.addEventListener('touchmove', (e) => {
-        currentX = e.touches[0].clientX - startX;
+        const moveX = e.touches[0].clientX - startX;
+        if (Math.abs(moveX) > 10) {
+            touchMoved = true;
+            clearTimeout(longPressTimer);
+        }
+        currentX = moveX;
 
         if (Math.abs(currentX) > 200) currentX = currentX > 0 ? 200 + (currentX-200)*0.2 : -200 + (currentX+200)*0.2;
 
@@ -586,23 +789,30 @@
         }
     }, {passive: true});
 
-    el.addEventListener('touchend', () => {
-        el.classList.remove('no-transition'); // 开启平滑回弹动画
-
-        if (currentX > 130) {
-            // 成功：向右完全滑出并完成
-            el.style.transform = 'translateX(100%)';
-            setTimeout(() => completeQuick(taskId), 200);
-        } else if (currentX < -130) {
-            // 成功：向左完全滑出并删除
-            el.style.transform = 'translateX(-100%)';
-            setTimeout(() => deleteTask(taskId), 200);
-        } else {
+    el.addEventListener('touchend', (e) => {
+        clearTimeout(longPressTimer);
+        
+        if (!touchMoved && !document.getElementById('deadlinePanel').classList.contains('show')) {
+            el.classList.remove('no-transition');
             el.style.transform = 'translateX(0)';
+            underlay.classList.remove('swipe-right', 'swipe-left');
+            icons.forEach(icon => icon.classList.remove('visible'));
+            currentX = 0;
+        } else if (touchMoved) {
+            el.classList.remove('no-transition');
+            if (currentX > 130) {
+                el.style.transform = 'translateX(100%)';
+                setTimeout(() => completeQuick(taskId), 200);
+            } else if (currentX < -130) {
+                el.style.transform = 'translateX(-100%)';
+                setTimeout(() => deleteTask(taskId), 200);
+            } else {
+                el.style.transform = 'translateX(0)';
+            }
+            underlay.classList.remove('swipe-right', 'swipe-left');
+            icons.forEach(icon => icon.classList.remove('visible'));
+            currentX = 0;
         }
-        underlay.classList.remove('swipe-right', 'swipe-left');
-        icons.forEach(icon => icon.classList.remove('visible'));
-        currentX = 0;
     });
 }
 
